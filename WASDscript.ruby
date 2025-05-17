@@ -2,86 +2,102 @@
 
 module Input
   class << self
-    alias_method :wasd_original_dir4, :dir4
-    alias_method :wasd_original_dir8, :dir8
-    alias_method :wasd_original_press, :press?
-    alias_method :wasd_original_trigger, :trigger?
-    alias_method :wasd_original_repeat, :repeat?
+    alias_method :original_dir4, :dir4
+    alias_method :original_dir8, :dir8
+    alias_method :original_press?, :press?
+    alias_method :original_trigger?, :trigger?
+    alias_method :original_repeat?, :repeat?
 
-    # Define WASD key mappings
+    # WASD key mappings to directional input constants
     KEY_MAP = {
-      Input::UP => Input::R,
-      Input::LEFT => Input::X,
-      Input::DOWN => Input::Y,
-      Input::RIGHT => Input::Z
-    }
+      Input::UP    => Input::R, # W key for UP
+      Input::LEFT  => Input::X, # A key for LEFT
+      Input::DOWN  => Input::Y, # S key for DOWN
+      Input::RIGHT => Input::Z  # D key for RIGHT
+    }.freeze
 
-    # Handle key presses
+    # Override press? to include WASD keys
     def press?(key)
-      return wasd_original_press(key) || wasd_original_press(KEY_MAP[key]) if KEY_MAP.key?(key)
-      wasd_original_press(key)
+      if KEY_MAP.key?(key)
+        original_press?(key) || original_press?(KEY_MAP[key])
+      else
+        original_press?(key)
+      end
     end
 
+    # Override trigger? to include WASD keys
     def trigger?(key)
-      return wasd_original_trigger(key) || wasd_original_trigger(KEY_MAP[key]) if KEY_MAP.key?(key)
-      wasd_original_trigger(key)
+      if KEY_MAP.key?(key)
+        original_trigger?(key) || original_trigger?(KEY_MAP[key])
+      else
+        original_trigger?(key)
+      end
     end
 
+    # Override repeat? to include WASD keys
     def repeat?(key)
-      return wasd_original_repeat(key) || wasd_original_repeat(KEY_MAP[key]) if KEY_MAP.key?(key)
-      wasd_original_repeat(key)
+      if KEY_MAP.key?(key)
+        original_repeat?(key) || original_repeat?(KEY_MAP[key])
+      else
+        original_repeat?(key)
+      end
     end
 
-    # Direction handling with menu safeguard
+    # Override dir4: use original direction unless zero,
+    # fall back to WASD input unless in menu scene
     def dir4
-      return wasd_original_dir4 if SceneManager.scene_is?(Scene_Menu)
-      handle_wasd_direction(:dir4)
+      return original_dir4 if SceneManager.scene_is?(Scene_Menu)
+      process_wasd_direction(:dir4)
     end
 
+    # Override dir8 similarly
     def dir8
-      return wasd_original_dir8 if SceneManager.scene_is?(Scene_Menu)
-      handle_wasd_direction(:dir8)
+      return original_dir8 if SceneManager.scene_is?(Scene_Menu)
+      process_wasd_direction(:dir8)
     end
 
     private
 
-    # Process directional input
-    def handle_wasd_direction(mode)
-      direction = send("wasd_original_#{mode}")
+    # Process directional input for WASD keys
+    def process_wasd_direction(mode)
+      direction = send("original_#{mode}")
       return direction unless direction.zero?
 
-      up_press = press?(Input::R)
-      left_press = press?(Input::X)
-      down_press = press?(Input::Y)
-      right_press = press?(Input::Z)
+      up    = press?(Input::R)
+      left  = press?(Input::X)
+      down  = press?(Input::Y)
+      right = press?(Input::Z)
 
-      count = press_count(up_press, left_press, right_press, down_press)
-      calculate_direction(count, up_press, left_press, down_press, right_press)
+      pressed_count = [up, left, down, right].count(true)
+      calculate_direction(pressed_count, up, left, down, right)
     end
 
-    # Count the number of keys pressed
-    def press_count(*presses)
-      presses.count(true)
-    end
-
-    # Calculate direction based on active keys
-    def calculate_direction(count, up_press, left_press, down_press, right_press)
+    # Calculate the 4- or 8-direction code based on keys pressed
+    def calculate_direction(count, up, left, down, right)
       case count
       when 3
-        # Opposite of unpressed direction
-        return 8 unless down_press
-        return 4 unless right_press
-        return 2 unless up_press
-        return 6 unless left_press
+        # Three keys pressed: return the direction opposite to the one not pressed
+        return 8 unless down
+        return 4 unless right
+        return 2 unless up
+        return 6 unless left
       when 2
-        # Handle conflicting directions
-        return 0 if (up_press && down_press) || (left_press && right_press)
-        return up_press ? 8 : left_press ? 4 : down_press ? 2 : 6
+        # Two keys pressed: check for opposite directions cancelling out
+        return 0 if (up && down) || (left && right)
+        return 8 if up
+        return 4 if left
+        return 2 if down
+        return 6 if right
       when 1
-        # Single key determines direction
-        return up_press ? 8 : left_press ? 4 : down_press ? 2 : 6
+        # Single key pressed: straightforward mapping
+        return 8 if up
+        return 4 if left
+        return 2 if down
+        return 6 if right
+      else
+        # No keys or invalid combination
+        return 0
       end
-      0
     end
   end
 end
